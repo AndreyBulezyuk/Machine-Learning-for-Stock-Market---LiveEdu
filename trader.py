@@ -1,7 +1,6 @@
-from nameko.rpc import rpc
-from nameko.timer import timer
+from hello.rpc import rpc
+from hello.timer import timer
 import oandaapi
-
 
 class Trader:
     """
