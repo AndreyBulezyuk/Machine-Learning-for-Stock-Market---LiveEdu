@@ -1,3 +1,4 @@
 keras
 oandapyV20
 nameko
+pymongo==3.7.1

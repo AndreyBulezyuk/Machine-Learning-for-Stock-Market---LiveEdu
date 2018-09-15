@@ -1,28 +1,54 @@
 from nameko.rpc import rpc
 from nameko.timer import timer
 import oandaapi
+import json
+from oandapyV20 import API    # the client
+import oandapyV20.endpoints.pricing as pricing
+import oandapyV20.endpoints.instruments as instruments
+from pymongo import MongoClient
 
+pyclient = MongoClient()
+db = pyclient['liveedu']
+
+access_token = oandaapi.oandaAPI
+accountID = "001-004-1129934-001"
+client = API(access_token=access_token, environment="live")
+
+GRANULARITY = "H1"
+INSTRUMENT = "EUR_USD"
 
 class DataCollector:
     name = "data_service"
 
-    @timer(interval=1)
+    @timer(interval=60*60)
     def get_ohlc(self):
         """
         :return: List of Market Data with Shape (1,4)
         """
 
-        # TODO: get data from oanda api
-        data = [13000, 12500, 12200, 12999]
-        print("getting OHLC Data from OANDA API:")
-        print(data)
+        # get data from oanda api
+        params = {
+            "granularity": GRANULARITY,
+            "count": 1
+        }
+        newest_candle = instruments.InstrumentsCandles(INSTRUMENT,  params)
+        newest_candle = client.request(newest_candle)
 
-        # TODO: save data to MongoDB
+        collection = db['streaming_data']
 
+        current_timestamp = newest_candle['candles'][0]['time']
+        find_double = collection.find_one({'candles.0.time': current_timestamp})
+
+        # check if candle, with current timestamp is not present.
+        if (find_double != None):
+            return False
+
+        # save data to MongoDB
+        collection.insert_one(newest_candle)
 
 
     @rpc
-    def get_hictorical_ohlc(self, instrument, from_date, to_date):
+    def get_hictorical_ohlc(self, instrument=INSTRUMENT, granularity=GRANULARITY, count=5000):
         """
 
         :param instrument:
@@ -30,72 +56,17 @@ class DataCollector:
         :param to_date:
         :return:
         """
-        # TODO: get historical price data from OANDA API
 
-        historical_ohlc = {'prices': [{'asks': [{'liquidity': 50,
-                       'price': '12126.9'},
-                      {'liquidity': 50,
-                       'price': '12127.0'},
-                      {'liquidity': 50,
-                       'price': '12127.2'},
-                      {'liquidity': 50,
-                       'price': '12127.4'}],
-             'bids': [{'liquidity': 25,
-                       'price': '12124.0'},
-                      {'liquidity': 25,
-                       'price': '12123.9'},
-                      {'liquidity': 50,
-                       'price': '12123.8'},
-                      {'liquidity': 50,
-                       'price': '12123.6'},
-                      {'liquidity': 50,
-                       'price': '12123.4'}],
-             'closeoutAsk': '12127.4',
-             'closeoutBid': '12123.4',
-             'instrument': 'DE30_EUR',
-             'quoteHomeConversionFactors': {'negativeUnits': '1.00000000',
-                                            'positiveUnits': '1.00000000'},
-             'status': 'non-tradeable',
-             'time': '2018-09-14T19:59:00.902942963Z',
-             'tradeable': False,
-             'type': 'PRICE',
-             'unitsAvailable': {'default': {'long': '0',
-                                            'short': '0'},
-                                'openOnly': {'long': '0',
-                                             'short': '0'},
-                                'reduceFirst': {'long': '0',
-                                                'short': '0'},
-                                'reduceOnly': {'long': '0',
-                                               'short': '0'}}},
-            {'asks': [{'liquidity': 10000000,
-                       'price': '0.88990'},
-                      {'liquidity': 10000000,
-                       'price': '0.89003'}],
-             'bids': [{'liquidity': 10000000,
-                       'price': '0.88890'},
-                      {'liquidity': 10000000,
-                       'price': '0.88876'}],
-             'closeoutAsk': '0.89003',
-             'closeoutBid': '0.88876',
-             'instrument': 'EUR_GBP',
-             'quoteHomeConversionFactors': {'negativeUnits': '1.12498594',
-                                            'positiveUnits': '1.12372177'},
-             'status': 'non-tradeable',
-             'time': '2018-09-14T20:59:57.782716422Z',
-             'tradeable': False,
-             'type': 'PRICE',
-             'unitsAvailable': {'default': {'long': '1504',
-                                            'short': '1504'},
-                                'openOnly': {'long': '1504',
-                                             'short': '1504'},
-                                'reduceFirst': {'long': '1504',
-                                                'short': '1504'},
-                                'reduceOnly': {'long': '0',
-                                               'short': '0'}}}],
- 'time': '2018-09-15T08:31:43.006065306Z'}
+        # get historical price data from OANDA API
+        params = {
+            "granularity": granularity,
+            "count": count
+        }
+        hist_data = instruments.InstrumentsCandles(instrument,  params)
+        hist_data = client.request(hist_data)
 
-        print(historical_ohlc)
+        # save the historical data
+        collection = db['historical_ohlc']
+        collection.insert_one(hist_data)
 
-        # TODO: save the historical data
-
-        return historical_ohlc
+        return hist_data
