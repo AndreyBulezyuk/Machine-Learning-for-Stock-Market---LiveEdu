@@ -6,6 +6,7 @@ from oandapyV20 import API    # the client
 import oandapyV20.endpoints.pricing as pricing
 import oandapyV20.endpoints.instruments as instruments
 from pymongo import MongoClient
+import json
 
 pyclient = MongoClient()
 db = pyclient['liveedu']
@@ -20,7 +21,7 @@ INSTRUMENT = "EUR_USD"
 class DataCollector:
     name = "data_service"
 
-    @timer(interval=60*60)
+    @timer(interval=10)
     def get_ohlc(self):
         """
         :return: List of Market Data with Shape (1,4)
@@ -29,7 +30,7 @@ class DataCollector:
         # get data from oanda api
         params = {
             "granularity": GRANULARITY,
-            "count": 1
+            "count": 2
         }
         newest_candle = instruments.InstrumentsCandles(INSTRUMENT,  params)
         newest_candle = client.request(newest_candle)
@@ -40,7 +41,7 @@ class DataCollector:
         find_double = collection.find_one({'candles.0.time': current_timestamp})
 
         # check if candle, with current timestamp is not present.
-        if (find_double != None):
+        if find_double is not None:
             return False
 
         # save data to MongoDB
@@ -68,5 +69,10 @@ class DataCollector:
         # save the historical data
         collection = db['historical_ohlc']
         collection.insert_one(hist_data)
+
+        del hist_data['_id']
+        print(hist_data)
+        print(type(hist_data))
+
 
         return hist_data
