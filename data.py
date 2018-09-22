@@ -6,8 +6,6 @@ from oandapyV20 import API    # the client
 import oandapyV20.endpoints.pricing as pricing
 import oandapyV20.endpoints.instruments as instruments
 from pymongo import MongoClient
-import json
-
 pyclient = MongoClient()
 db = pyclient['liveedu']
 
